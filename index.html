@@ -1,0 +1,871 @@
+
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoTrack Enterprise Intelligence Suite v3.0</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <!-- MapLibre GL CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  
+  <style>
+    #map {
+      background: #020617;
+      min-height: 400px;
+    }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+    }
+    .leaflet-container {
+      font-family: inherit;
+    }
+    #map3d {
+      position: absolute;
+      inset: 0;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .pulse-marker {
+      width: 20px;
+      height: 20px;
+      background: #38bdf8;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #38bdf8;
+      animation: pulse-ring 2s infinite;
+    }
+    .pulse-marker-amber {
+      background: #f59e0b;
+      box-shadow: 0 0 15px #f59e0b;
+      animation: pulse-ring-amber 2s infinite;
+    }
+    .pulse-marker-emerald {
+      background: #10b981;
+      box-shadow: 0 0 15px #10b981;
+      animation: pulse-ring-emerald 2s infinite;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 14px rgba(56, 189, 248, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
+    @keyframes pulse-ring-amber {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 14px rgba(245, 158, 11, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+    @keyframes pulse-ring-emerald {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen md:h-full flex flex-col font-sans md:overflow-hidden">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Executive Header Navigation -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3.5 flex justify-between items-center shadow-xl z-20 flex-wrap gap-4 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="p-2 bg-sky-500/10 border border-sky-500/20 rounded-lg">
+        <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+          GeoTrack Enterprise <span class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">GIS v3.0</span>
+        </h1>
+        <p class="text-xs text-slate-400">Integrated GPS, IP, Mobile Demo & Geofencing Suite</p>
+      </div>
+    </div>
+
+    <!-- Live System Status Badge -->
+    <div class="flex items-center space-x-6 text-xs bg-slate-950/60 px-4 py-2 rounded-xl border border-slate-800">
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400">Active Mode:</span>
+        <strong id="mode-label" class="text-sky-400 font-semibold uppercase tracking-wide">LIVE GPS</strong>
+      </div>
+      <div class="h-4 w-[1px] bg-slate-800"></div>
+      <div class="flex items-center space-x-2">
+        <span class="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-sm shadow-emerald-500/50" id="status-dot"></span>
+        <span class="text-slate-400">Status:</span>
+        <span id="status" class="text-emerald-400 font-semibold">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Grid -->
+  <main class="flex-1 flex flex-col md:flex-row md:overflow-hidden relative">
+    
+    <!-- Sidebar Control Operations -->
+    <aside class="order-2 md:order-none w-full md:w-96 bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between z-10 md:overflow-y-auto md:shrink-0 shadow-2xl">
+      <div class="space-y-6">
+        
+        <!-- 3-Way Isolated Mode Tabs Selector -->
+        <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button id="tabGpsBtn" class="py-2 text-[11px] font-semibold rounded-lg bg-sky-600 text-white shadow transition cursor-pointer">Live GPS</button>
+          <button id="tabIpBtn" class="py-2 text-[11px] font-semibold rounded-lg text-slate-400 hover:text-white transition cursor-pointer">IP Locate</button>
+          <button id="tabSimBtn" class="py-2 text-[11px] font-semibold rounded-lg text-slate-400 hover:text-white transition cursor-pointer">Phone Demo</button>
+        </div>
+
+        <!-- MODULE A: LIVE DEVICE GPS MODE -->
+        <div id="panelGps" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+              Hardware Device GPS Fix
+            </h2>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="startGpsBtn" class="bg-sky-600 hover:bg-sky-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition duration-200 shadow cursor-pointer">
+              Start Live GPS
+            </button>
+            <button id="stopGpsBtn" disabled class="bg-slate-800 text-slate-500 font-medium py-2 px-3 rounded-lg text-xs border border-slate-700/50 cursor-not-allowed">
+              Stop GPS
+            </button>
+          </div>
+          <button id="simGpsDriftBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-1.5 px-3 rounded-lg text-[11px] border border-slate-700 transition cursor-pointer">
+            Test GPS Drift Simulation (If Indoor)
+          </button>
+          <p class="text-[11px] text-slate-400 leading-relaxed">Acquires real-time coordinates from device GPS sensors with live accuracy radius and breadcrumb trails.</p>
+        </div>
+
+        <!-- MODULE B: IP ADDRESS GEOLOCATION MODE (Isolated) -->
+        <div id="panelIp" class="space-y-4 hidden">
+          <div class="flex items-center justify-between">
+            <h2 class="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+              IP Network Geolocation
+            </h2>
+          </div>
+          <div class="space-y-2">
+            <button id="fetchMyIpBtn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition cursor-pointer shadow">
+              Locate My Current Public IP
+            </button>
+            <div class="flex gap-2 pt-1">
+              <input type="text" id="ipInput" placeholder="Enter IP (e.g. 8.8.8.8)..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 placeholder-slate-600 font-mono" />
+              <button id="lookupIpBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-4 py-2 rounded-lg text-xs transition border border-slate-700 cursor-pointer">Lookup</button>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">Performs independent ISP, ASN, and regional IP node lookup with city-level uncertainty radius.</p>
+          </div>
+        </div>
+
+        <!-- MODULE C: SIMULATED PHONE NUMBER DEMO (Isolated) -->
+        <div id="panelSim" class="space-y-4 hidden">
+          <div class="flex items-center justify-between">
+            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+              Simulated Mobile Path
+            </h2>
+          </div>
+          <div class="space-y-2">
+            <input type="text" id="phoneInput" placeholder="e.g. +256 703 727173" value="+256 703 727173" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 placeholder-slate-600 font-mono" />
+            <div class="grid grid-cols-2 gap-2">
+              <button id="startSimBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition cursor-pointer shadow">
+                Start Route Sim
+              </button>
+              <button id="stopSimBtn" disabled class="bg-slate-800 text-slate-500 font-medium py-2 px-3 rounded-lg text-xs border border-slate-700/50 cursor-not-allowed">
+                Stop Sim
+              </button>
+            </div>
+            <p class="text-[11px] leading-relaxed text-amber-300/90">Simulated movement along route waypoints to test live telemetry and geofence breaches.</p>
+          </div>
+        </div>
+
+        <!-- MODULE D: GEOFENCING ENGINE -->
+        <div class="space-y-3 pt-3 border-t border-slate-800">
+          <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              Geofence Perimeter
+            </span>
+            <span id="fenceStatus" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Inactive</span>
+          </h2>
+          <div class="space-y-2.5">
+            <input type="text" id="fenceNameInput" placeholder="Perimeter label (e.g. HQ Zone)" value="Secure Zone Alpha" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500" />
+            <div class="flex justify-between text-xs text-slate-400">
+              <span>Radius: <strong id="radiusVal" class="text-white">500</strong>m</span>
+              <span class="text-[10px] text-slate-500">Click map to place</span>
+            </div>
+            <input type="range" id="fenceRadiusRange" min="50" max="5000" step="50" value="500" class="w-full accent-emerald-500 bg-slate-950 cursor-pointer" />
+            <div class="grid grid-cols-2 gap-2">
+              <button id="setFenceBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-2.5 rounded-lg text-xs transition cursor-pointer">Place at Target</button>
+              <button id="clearFenceBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 px-2.5 rounded-lg text-xs transition border border-slate-700 cursor-pointer">Clear Fence</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry Stream Feed -->
+        <div class="space-y-3 pt-3 border-t border-slate-800">
+          <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+            <span>Telemetry Stream</span>
+            <span class="text-[10px] text-sky-400 normal-case bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 font-mono">Live Feed</span>
+          </h2>
+          <div class="bg-slate-950/90 p-3.5 rounded-xl border border-slate-800 shadow-inner max-h-40 overflow-y-auto font-mono text-[11px]">
+            <div id="meta">
+              <em class="text-slate-500 font-sans">Awaiting telemetry payload...</em>
+            </div>
+          </div>
+        </div>
+
+        <!-- Utilities & Controls -->
+        <div class="space-y-2.5 pt-3 border-t border-slate-800">
+          <label class="flex items-center text-xs text-slate-300 cursor-pointer select-none bg-slate-950/40 p-2.5 rounded-lg border border-slate-800">
+            <input type="checkbox" id="followChk" checked class="rounded border-slate-700 bg-slate-950 text-sky-600 focus:ring-0 mr-2.5 h-4 w-4" /> 
+            Auto-center view on target
+          </label>
+          <button id="exportBtn" disabled class="w-full bg-slate-800 text-slate-500 font-medium py-2.5 px-3 rounded-lg text-xs border border-slate-700/50 cursor-not-allowed transition flex items-center justify-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Export Telemetry CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer Info -->
+      <div class="text-[11px] text-slate-500 border-t border-slate-800 pt-4 mt-6 flex justify-between items-center">
+        <span>Group 17 • Enterprise GIS</span>
+        <span class="text-slate-400 font-mono">Secure Node v3.0</span>
+      </div>
+    </aside>
+
+    <!-- Map Canvas Workspace -->
+    <main class="order-1 md:order-none flex-1 relative h-[55vh] min-h-[400px] md:h-full">
+      
+      <!-- Floating Place Search Bar -->
+      <div class="absolute top-4 left-4 z-[1000] w-72 md:w-80">
+        <div class="relative flex items-center">
+          <input type="text" id="placeSearchInput" placeholder="Search places, cities, coordinates..." class="w-full bg-slate-900/95 text-slate-100 placeholder-slate-400 text-xs rounded-xl pl-9 pr-3 py-2.5 border border-slate-700 shadow-xl focus:outline-none focus:border-sky-500 backdrop-blur" />
+          <svg class="w-4 h-4 text-slate-400 absolute left-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+        <div id="searchResults" class="hidden absolute top-full left-0 right-0 mt-1.5 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto z-[1001] divide-y divide-slate-800 text-xs"></div>
+      </div>
+
+      <!-- Floating Map Layer & 3D Switcher -->
+      <div class="absolute top-4 right-4 z-[1000] flex items-center gap-1.5 bg-slate-900/95 p-1 rounded-xl border border-slate-700 shadow-xl backdrop-blur">
+        <button id="layerStreet" class="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-sky-600 text-white transition cursor-pointer">Street</button>
+        <button id="layerSatellite" class="px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white transition cursor-pointer">Satellite</button>
+        <button id="layerDark" class="px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white transition cursor-pointer">Dark</button>
+        <button id="toggle3dBtn" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-400 border border-amber-500/30 hover:bg-amber-600/30 transition cursor-pointer">3D View</button>
+      </div>
+
+      <!-- Map Containers -->
+      <div id="map" class="w-full h-full z-0"></div>
+      <div id="map3d" class="hidden w-full h-full z-0"></div>
+    </main>
+  </main>
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <!-- Application Logic -->
+  <script>
+    // --- State Management ---
+    let activeMode = 'gps';
+    let watchId = null;
+    let simInterval = null;
+    let gpsDriftInterval = null;
+    let telemetryLogs = [];
+    let currentMarker = null;
+    let accuracyCircle = null;
+    let breadcrumbLine = null;
+    let breadcrumbCoords = [];
+    let geofenceCenter = null;
+    let geofenceRadius = 500;
+    let geofenceCircle = null;
+    let lastFenceState = null;
+    let is3dActive = false;
+    let map3dInstance = null;
+
+    // --- Initialize Leaflet Map (Default: Mbarara / Kampala Region) ---
+    const map = L.map('map', { zoomControl: false }).setView([-0.6072, 30.6545], 14);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // Map Tile Layers
+    const streetLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri — Sources: Esri, HERE, Garmin, FAO, NOAA, USGS, &copy; OpenStreetMap contributors, and the GIS User Community'
+    });
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri' });
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '© CARTO' });
+    
+    streetLayer.addTo(map);
+
+    // Ensure proper map tile rendering
+    setTimeout(() => map.invalidateSize(), 200);
+    window.addEventListener('resize', () => {
+      if (!is3dActive) map.invalidateSize();
+    });
+
+    // Toast Utility
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const colors = {
+        info: 'bg-slate-900 border-sky-500 text-sky-300',
+        success: 'bg-slate-900 border-emerald-500 text-emerald-300',
+        warning: 'bg-slate-900 border-amber-500 text-amber-300',
+        danger: 'bg-rose-950 border-rose-500 text-rose-200 font-bold'
+      };
+      toast.className = `px-4 py-2.5 rounded-xl border text-xs shadow-2xl transition-all duration-300 ${colors[type] || colors.info}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // UI Elements
+    const modeLabel = document.getElementById('mode-label');
+    const statusText = document.getElementById('status');
+    const metaBox = document.getElementById('meta');
+    const exportBtn = document.getElementById('exportBtn');
+    const followChk = document.getElementById('followChk');
+
+    const tabGpsBtn = document.getElementById('tabGpsBtn');
+    const tabIpBtn = document.getElementById('tabIpBtn');
+    const tabSimBtn = document.getElementById('tabSimBtn');
+    const panelGps = document.getElementById('panelGps');
+    const panelIp = document.getElementById('panelIp');
+    const panelSim = document.getElementById('panelSim');
+
+    // --- 3-Way Mode Switching ---
+    function switchMode(mode) {
+      activeMode = mode;
+      tabGpsBtn.className = 'py-2 text-[11px] font-semibold rounded-lg text-slate-400 hover:text-white transition cursor-pointer';
+      tabIpBtn.className = 'py-2 text-[11px] font-semibold rounded-lg text-slate-400 hover:text-white transition cursor-pointer';
+      tabSimBtn.className = 'py-2 text-[11px] font-semibold rounded-lg text-slate-400 hover:text-white transition cursor-pointer';
+      
+      panelGps.classList.add('hidden');
+      panelIp.classList.add('hidden');
+      panelSim.classList.add('hidden');
+
+      if (mode === 'gps') {
+        tabGpsBtn.className = 'py-2 text-[11px] font-semibold rounded-lg bg-sky-600 text-white shadow transition cursor-pointer';
+        panelGps.classList.remove('hidden');
+        modeLabel.textContent = 'LIVE GPS';
+        modeLabel.className = 'text-sky-400 font-semibold uppercase tracking-wide';
+      } else if (mode === 'ip') {
+        tabIpBtn.className = 'py-2 text-[11px] font-semibold rounded-lg bg-amber-600 text-white shadow transition cursor-pointer';
+        panelIp.classList.remove('hidden');
+        modeLabel.textContent = 'IP GEOLOCATE';
+        modeLabel.className = 'text-amber-400 font-semibold uppercase tracking-wide';
+      } else if (mode === 'sim') {
+        tabSimBtn.className = 'py-2 text-[11px] font-semibold rounded-lg bg-emerald-600 text-white shadow transition cursor-pointer';
+        panelSim.classList.remove('hidden');
+        modeLabel.textContent = 'PHONE DEMO';
+        modeLabel.className = 'text-emerald-400 font-semibold uppercase tracking-wide';
+      }
+    }
+
+    tabGpsBtn.addEventListener('click', () => switchMode('gps'));
+    tabIpBtn.addEventListener('click', () => switchMode('ip'));
+    tabSimBtn.addEventListener('click', () => switchMode('sim'));
+
+    // --- Layer Switching Controls ---
+    const layerStreet = document.getElementById('layerStreet');
+    const layerSatellite = document.getElementById('layerSatellite');
+    const layerDark = document.getElementById('layerDark');
+    const toggle3dBtn = document.getElementById('toggle3dBtn');
+
+    function resetLayerBtns() {
+      layerStreet.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white transition cursor-pointer';
+      layerSatellite.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white transition cursor-pointer';
+      layerDark.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white transition cursor-pointer';
+    }
+
+    layerStreet.addEventListener('click', () => {
+      if (is3dActive) toggle3DView();
+      resetLayerBtns();
+      layerStreet.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg bg-sky-600 text-white transition cursor-pointer';
+      map.eachLayer(l => { if(l instanceof L.TileLayer) map.removeLayer(l); });
+      streetLayer.addTo(map);
+    });
+
+    layerSatellite.addEventListener('click', () => {
+      if (is3dActive) toggle3DView();
+      resetLayerBtns();
+      layerSatellite.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg bg-sky-600 text-white transition cursor-pointer';
+      map.eachLayer(l => { if(l instanceof L.TileLayer) map.removeLayer(l); });
+      satLayer.addTo(map);
+    });
+
+    layerDark.addEventListener('click', () => {
+      if (is3dActive) toggle3DView();
+      resetLayerBtns();
+      layerDark.className = 'px-2.5 py-1.5 text-xs font-medium rounded-lg bg-sky-600 text-white transition cursor-pointer';
+      map.eachLayer(l => { if(l instanceof L.TileLayer) map.removeLayer(l); });
+      darkLayer.addTo(map);
+    });
+
+    // --- 3D View Toggle (MapLibre GL) ---
+    toggle3dBtn.addEventListener('click', toggle3DView);
+
+    function toggle3DView() {
+      const mapEl = document.getElementById('map');
+      const map3dEl = document.getElementById('map3d');
+      is3dActive = !is3dActive;
+
+      if (is3dActive) {
+        mapEl.classList.add('hidden');
+        map3dEl.classList.remove('hidden');
+        toggle3dBtn.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 text-white border border-amber-500 shadow transition cursor-pointer';
+        toggle3dBtn.textContent = 'Exit 3D';
+
+        const center = map.getCenter();
+        if (!map3dInstance) {
+          map3dInstance = new maplibregl.Map({
+            container: 'map3d',
+            style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+            center: [center.lng, center.lat],
+            zoom: 15.5,
+            pitch: 60,
+            bearing: -17.6
+          });
+        } else {
+          map3dInstance.setCenter([center.lng, center.lat]);
+          map3dInstance.resize();
+        }
+      } else {
+        map3dEl.classList.add('hidden');
+        mapEl.classList.remove('hidden');
+        toggle3dBtn.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-400 border border-amber-500/30 hover:bg-amber-600/30 transition cursor-pointer';
+        toggle3dBtn.textContent = '3D View';
+        map.invalidateSize();
+      }
+    }
+
+    // --- Place Search & Geocoding (Nominatim) ---
+    const placeSearchInput = document.getElementById('placeSearchInput');
+    const searchResults = document.getElementById('searchResults');
+    let searchDebounce = null;
+
+    placeSearchInput.addEventListener('input', (e) => {
+      clearTimeout(searchDebounce);
+      const query = e.target.value.trim();
+      if (query.length < 3) {
+        searchResults.classList.add('hidden');
+        return;
+      }
+      searchDebounce = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          searchResults.innerHTML = '';
+          if (data.length === 0) {
+            searchResults.innerHTML = '<div class="p-2.5 text-slate-400">No matching locations found.</div>';
+          } else {
+            data.slice(0, 5).forEach(item => {
+              const div = document.createElement('div');
+              div.className = 'p-2.5 hover:bg-slate-800 cursor-pointer text-slate-200 transition';
+              div.textContent = item.display_name;
+              div.onclick = () => {
+                const lat = parseFloat(item.lat);
+                const lon = parseFloat(item.lon);
+                map.setView([lat, lon], 16);
+                searchResults.classList.add('hidden');
+                placeSearchInput.value = item.display_name;
+
+                if (currentMarker) map.removeLayer(currentMarker);
+                currentMarker = L.marker([lat, lon]).addTo(map)
+                  .bindPopup(`<b>Searched Place:</b><br>${item.display_name}<br><button onclick="setFenceAtCoords(${lat}, ${lon})" class="mt-2 bg-emerald-600 text-white px-2.5 py-1 rounded text-[10px] font-semibold">Create Geofence Here</button>`)
+                  .openPopup();
+                
+                logTelemetry('PLACE_SEARCH', { lat, lon, name: item.display_name });
+                showToast('Navigated to ' + item.display_name.split(',')[0], 'info');
+              };
+              searchResults.appendChild(div);
+            });
+          }
+          searchResults.classList.remove('hidden');
+        } catch (err) {
+          console.error(err);
+        }
+      }, 350);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!placeSearchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        searchResults.classList.add('hidden');
+      }
+    });
+
+    // --- Live Device GPS Engine ---
+    const startGpsBtn = document.getElementById('startGpsBtn');
+    const stopGpsBtn = document.getElementById('stopGpsBtn');
+    const simGpsDriftBtn = document.getElementById('simGpsDriftBtn');
+
+    startGpsBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        showToast('Geolocation not supported by browser', 'danger');
+        return;
+      }
+      stopAllTracking();
+      statusText.textContent = 'Acquiring GPS Fix...';
+      startGpsBtn.disabled = true;
+      startGpsBtn.className = 'bg-sky-600/50 text-slate-300 font-medium py-2 px-3 rounded-lg text-xs cursor-not-allowed';
+      stopGpsBtn.disabled = false;
+      stopGpsBtn.className = 'bg-rose-600 hover:bg-rose-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition cursor-pointer';
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const accuracy = pos.coords.accuracy;
+          const speed = pos.coords.speed !== null ? (pos.coords.speed * 3.6).toFixed(1) : '0.0';
+          const alt = pos.coords.altitude !== null ? pos.coords.altitude.toFixed(1) + 'm' : 'N/A';
+
+          statusText.textContent = 'Live GPS Locked';
+          updateTargetLocation(lat, lng, accuracy, { speed, alt, source: 'Hardware GPS', colorClass: '' });
+        },
+        (err) => {
+          showToast('GPS Access Denied/Unavailable: ' + err.message, 'warning');
+          stopAllTracking();
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      );
+    });
+
+    simGpsDriftBtn.addEventListener('click', () => {
+      stopAllTracking();
+      statusText.textContent = 'Simulated GPS Drift';
+      let lat = map.getCenter().lat;
+      let lng = map.getCenter().lng;
+      showToast('Started indoor GPS drift simulation', 'info');
+
+      gpsDriftInterval = setInterval(() => {
+        lat += (Math.random() - 0.45) * 0.0005;
+        lng += (Math.random() - 0.45) * 0.0005;
+        updateTargetLocation(lat, lng, 12, { speed: (Math.random() * 6 + 2).toFixed(1), source: 'Simulated GPS', colorClass: '' });
+      }, 2000);
+    });
+
+    stopGpsBtn.addEventListener('click', stopAllTracking);
+
+    function stopAllTracking() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      if (gpsDriftInterval) {
+        clearInterval(gpsDriftInterval);
+        gpsDriftInterval = null;
+      }
+      if (simInterval) {
+        clearInterval(simInterval);
+        simInterval = null;
+      }
+      startGpsBtn.disabled = false;
+      startGpsBtn.className = 'bg-sky-600 hover:bg-sky-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition cursor-pointer';
+      stopGpsBtn.disabled = true;
+      stopGpsBtn.className = 'bg-slate-800 text-slate-500 font-medium py-2 px-3 rounded-lg text-xs border border-slate-700/50 cursor-not-allowed';
+      
+      const startSimBtn = document.getElementById('startSimBtn');
+      const stopSimBtn = document.getElementById('stopSimBtn');
+      startSimBtn.disabled = false;
+      startSimBtn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition cursor-pointer shadow';
+      stopSimBtn.disabled = true;
+      stopSimBtn.className = 'bg-slate-800 text-slate-500 font-medium py-2 px-3 rounded-lg text-xs border border-slate-700/50 cursor-not-allowed';
+
+      statusText.textContent = 'Ready';
+    }
+
+    // --- IP Geolocation Engine (Isolated) ---
+    const fetchMyIpBtn = document.getElementById('fetchMyIpBtn');
+    const lookupIpBtn = document.getElementById('lookupIpBtn');
+    const ipInput = document.getElementById('ipInput');
+
+    fetchMyIpBtn.addEventListener('click', () => lookupIp(''));
+    lookupIpBtn.addEventListener('click', () => {
+      const ip = ipInput.value.trim();
+      if (!ip) {
+        showToast('Please enter a valid IP address', 'warning');
+        return;
+      }
+      lookupIp(ip);
+    });
+
+    async function lookupIp(ipQuery) {
+      stopAllTracking();
+      statusText.textContent = 'Querying IP Geolocation...';
+      try {
+        let data = null;
+        try {
+          const res = await fetch(`https://ipapi.co/${ipQuery ? ipQuery + '/' : ''}json/`);
+          data = await res.json();
+          if (data.error) throw new Error(data.reason || 'ipapi error');
+          data = {
+            ip: data.ip,
+            lat: data.latitude,
+            lon: data.longitude,
+            city: data.city,
+            country: data.country_name,
+            isp: data.org || data.asn
+          };
+        } catch (e) {
+          const res2 = await fetch(`https://ipwho.is/${ipQuery}`);
+          const d2 = await res2.json();
+          if (!d2.success) throw new Error(d2.message || 'ipwho.is error');
+          data = {
+            ip: d2.ip,
+            lat: d2.latitude,
+            lon: d2.longitude,
+            city: d2.city,
+            country: d2.country,
+            isp: d2.connection?.isp || d2.connection?.org
+          };
+        }
+
+        if (!data || !data.lat || !data.lon) throw new Error('Unable to resolve coordinates for IP');
+
+        statusText.textContent = 'IP Node Located';
+        updateTargetLocation(data.lat, data.lon, 8000, {
+          source: 'IP Geolocation',
+          ip: data.ip,
+          city: data.city,
+          country: data.country,
+          isp: data.isp,
+          colorClass: 'pulse-marker-amber'
+        });
+        showToast(`IP Located: ${data.city}, ${data.country}`, 'success');
+      } catch (err) {
+        showToast('IP Lookup Failed: ' + err.message, 'danger');
+        statusText.textContent = 'Error';
+      }
+    }
+
+    // --- Simulated Phone Number Demo ---
+    const startSimBtn = document.getElementById('startSimBtn');
+    const stopSimBtn = document.getElementById('stopSimBtn');
+    const phoneInput = document.getElementById('phoneInput');
+
+    startSimBtn.addEventListener('click', () => {
+      stopAllTracking();
+      const phone = phoneInput.value.trim() || '+256 703 727173';
+      statusText.textContent = 'Simulating Mobile Route';
+      startSimBtn.disabled = true;
+      startSimBtn.className = 'bg-emerald-600/50 text-slate-300 font-medium py-2 px-3 rounded-lg text-xs cursor-not-allowed';
+      stopSimBtn.disabled = false;
+      stopSimBtn.className = 'bg-rose-600 hover:bg-rose-500 text-white font-medium py-2 px-3 rounded-lg text-xs transition cursor-pointer';
+
+      let step = 0;
+      const baseLat = map.getCenter().lat;
+      const baseLng = map.getCenter().lng;
+
+      showToast(`Simulating route for ${phone}`, 'info');
+
+      simInterval = setInterval(() => {
+        step++;
+        const lat = baseLat + Math.sin(step * 0.25) * 0.004;
+        const lng = baseLng + (step * 0.0008);
+        updateTargetLocation(lat, lng, 25, {
+          source: 'Simulated Mobile',
+          phone,
+          speed: (35 + Math.random() * 15).toFixed(1),
+          colorClass: 'pulse-marker-emerald'
+        });
+      }, 1500);
+    });
+
+    stopSimBtn.addEventListener('click', stopAllTracking);
+
+    // --- Core Map & Telemetry Update Processor ---
+    function updateTargetLocation(lat, lng, accuracy, details) {
+      const latLng = [lat, lng];
+
+      if (currentMarker) map.removeLayer(currentMarker);
+      if (accuracyCircle) map.removeLayer(accuracyCircle);
+
+      const markerColor = details.colorClass || '';
+      const customIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div class="pulse-marker ${markerColor}"></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+
+      const circleColor = details.source === 'IP Geolocation' ? '#f59e0b' : (details.source === 'Simulated Mobile' ? '#10b981' : '#38bdf8');
+
+      currentMarker = L.marker(latLng, { icon: customIcon }).addTo(map);
+      accuracyCircle = L.circle(latLng, { radius: accuracy, color: circleColor, fillColor: circleColor, fillOpacity: 0.1, weight: 1 }).addTo(map);
+
+      // Breadcrumb trail for moving targets
+      if (details.source !== 'IP Geolocation') {
+        breadcrumbCoords.push(latLng);
+        if (breadcrumbCoords.length > 50) breadcrumbCoords.shift();
+        if (breadcrumbLine) map.removeLayer(breadcrumbLine);
+        breadcrumbLine = L.polyline(breadcrumbCoords, { color: circleColor, weight: 3, opacity: 0.75, dashArray: '5, 8' }).addTo(map);
+      }
+
+      if (followChk.checked) {
+        map.setView(latLng, details.source === 'IP Geolocation' ? 12 : Math.max(map.getZoom(), 15));
+      }
+
+      // Geofence proximity verification
+      checkGeofence(lat, lng);
+
+      // Rich Popup
+      let popupContent = `<b class="text-sky-400">${details.source}</b><br>Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}`;
+      if (details.ip) popupContent += `<br><b>IP:</b> ${details.ip}<br><b>Location:</b> ${details.city}, ${details.country}<br><b>ISP:</b> ${details.isp}`;
+      if (details.phone) popupContent += `<br><b>Device:</b> ${details.phone}`;
+      if (details.speed) popupContent += `<br><b>Speed:</b> ${details.speed} km/h`;
+      currentMarker.bindPopup(popupContent);
+
+      logTelemetry(details.source, { lat, lng, accuracy, ...details });
+      exportBtn.disabled = false;
+      exportBtn.className = 'w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-2.5 px-3 rounded-lg text-xs border border-slate-700 transition flex items-center justify-center gap-2 cursor-pointer';
+    }
+
+    // --- Geofencing Engine ---
+    const fenceRadiusRange = document.getElementById('fenceRadiusRange');
+    const radiusVal = document.getElementById('radiusVal');
+    const setFenceBtn = document.getElementById('setFenceBtn');
+    const clearFenceBtn = document.getElementById('clearFenceBtn');
+    const fenceStatus = document.getElementById('fenceStatus');
+    const fenceNameInput = document.getElementById('fenceNameInput');
+
+    fenceRadiusRange.addEventListener('input', (e) => {
+      geofenceRadius = parseInt(e.target.value);
+      radiusVal.textContent = geofenceRadius;
+      if (geofenceCircle) {
+        geofenceCircle.setRadius(geofenceRadius);
+        if (currentMarker) {
+          const pos = currentMarker.getLatLng();
+          checkGeofence(pos.lat, pos.lng);
+        }
+      }
+    });
+
+    // Click on map to place geofence
+    map.on('click', (e) => {
+      setFenceAtCoords(e.latlng.lat, e.latlng.lng);
+    });
+
+    setFenceBtn.addEventListener('click', () => {
+      const center = currentMarker ? currentMarker.getLatLng() : map.getCenter();
+      setFenceAtCoords(center.lat, center.lng);
+    });
+
+    function setFenceAtCoords(lat, lng) {
+      geofenceCenter = [lat, lng];
+      lastFenceState = null;
+      if (geofenceCircle) map.removeLayer(geofenceCircle);
+
+      const label = fenceNameInput.value.trim() || 'Geofence Zone';
+      geofenceCircle = L.circle(geofenceCenter, {
+        radius: geofenceRadius,
+        color: '#10b981',
+        fillColor: '#10b981',
+        fillOpacity: 0.15,
+        weight: 2,
+        dashArray: '5, 5'
+      }).addTo(map).bindPopup(`<b>${label}</b><br>Radius: ${geofenceRadius}m`);
+
+      fenceStatus.textContent = 'Active';
+      fenceStatus.className = 'text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-semibold';
+      showToast(`Geofence "${label}" placed (${geofenceRadius}m)`, 'success');
+
+      if (currentMarker) {
+        const pos = currentMarker.getLatLng();
+        checkGeofence(pos.lat, pos.lng);
+      }
+    }
+
+    clearFenceBtn.addEventListener('click', () => {
+      geofenceCenter = null;
+      lastFenceState = null;
+      if (geofenceCircle) {
+        map.removeLayer(geofenceCircle);
+        geofenceCircle = null;
+      }
+      fenceStatus.textContent = 'Inactive';
+      fenceStatus.className = 'text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700';
+      showToast('Geofence perimeter cleared', 'info');
+    });
+
+    function checkGeofence(lat, lng) {
+      if (!geofenceCenter) return;
+      const distance = map.distance([lat, lng], geofenceCenter);
+      const isInside = distance <= geofenceRadius;
+      const label = fenceNameInput.value.trim() || 'Geofence';
+
+      if (isInside) {
+        fenceStatus.textContent = `Inside (${Math.round(distance)}m)`;
+        fenceStatus.className = 'text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-semibold';
+        if (geofenceCircle) geofenceCircle.setStyle({ color: '#10b981', fillColor: '#10b981' });
+        
+        if (lastFenceState === 'outside') {
+          showToast(`ALERT: Target entered ${label}!`, 'success');
+        }
+        lastFenceState = 'inside';
+      } else {
+        fenceStatus.textContent = `BREACH (${Math.round(distance)}m)`;
+        fenceStatus.className = 'text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded border border-rose-500/30 font-bold animate-pulse';
+        if (geofenceCircle) geofenceCircle.setStyle({ color: '#f43f5e', fillColor: '#f43f5e' });
+
+        if (lastFenceState === 'inside') {
+          showToast(`BREACH ALERT: Target exited ${label}!`, 'danger');
+        }
+        lastFenceState = 'outside';
+      }
+    }
+
+    // --- Telemetry Logging & CSV Export ---
+    function logTelemetry(type, data) {
+      const timestamp = new Date().toISOString();
+      const entry = { timestamp, type, ...data };
+      telemetryLogs.push(entry);
+
+      metaBox.innerHTML = telemetryLogs.slice(-6).reverse().map(l => `
+        <div class="mb-2 pb-2 border-b border-slate-900 last:border-none">
+          <span class="text-sky-400">[${l.timestamp.split('T')[1].slice(0,8)}]</span> 
+          <strong class="text-slate-300">${l.type}</strong><br>
+          Lat: ${l.lat?.toFixed(5)}, Lng: ${l.lng?.toFixed(5)} 
+          ${l.speed ? `• ${l.speed} km/h` : ''}
+          ${l.ip ? `<br><span class="text-amber-400">IP: ${l.ip} (${l.city})</span>` : ''}
+        </div>
+      `).join('');
+    }
+
+    exportBtn.addEventListener('click', () => {
+      if (telemetryLogs.length === 0) return;
+      let csv = 'Timestamp,Type,Latitude,Longitude,Accuracy,Speed_kmh,IP,City,Country,ISP\n';
+      telemetryLogs.forEach(l => {
+        csv += `"${l.timestamp}","${l.type}",${l.lat || ''},${l.lng || ''},${l.accuracy || ''},"${l.speed || ''}","${l.ip || ''}","${l.city || ''}","${l.country || ''}","${l.isp || ''}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `geotrack_telemetry_${Date.now()}.csv`;
+      a.click();
+      showToast('Telemetry CSV exported', 'success');
+    });
+  </script>
+</body>
+</html>
